@@ -36,7 +36,7 @@ def read_data():
 data, crops = read_data()
 
 
-st.title("Title placeholder")
+st.title("Crop Optimization By Region")
 
 
 def format_float(f):
