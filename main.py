@@ -13,8 +13,6 @@ import folium
 from folium.plugins import MousePosition
 
 
-# TODO: could add suggested farming equipment or link to john deere sites
-
 load_dotenv('credentials.env')
 GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY')
 AMBEE_API_KEY = os.getenv('AMBEE_API_KEY')
@@ -36,7 +34,8 @@ def read_data():
 data, crops = read_data()
 
 
-st.title("Crop Optimization By Region")
+st.title("Crop Optimization By Location")
+st.write("Based on soil properties and weather conditions")
 
 
 def format_float(f):
@@ -119,8 +118,6 @@ def api_calls(lat, lng):
     today = date.today()
     yesterday = today - timedelta(days = 1)
 
-    # TODO: change to year?
-
     url = f'https://api.ambeedata.com/weather/history/daily/by-lat-lng?lat={lat}&lng={lng}&' + \
         f'from={yesterday}%2000:00:00&to={today}%2000:00:00' + \
         '&x-api-key=574ff7cf7f9cff3669b45812fc5d6f2372f1b73c4a40b89fb0d0ae9ea34175ab&units=si'
@@ -168,23 +165,28 @@ def handle_address():
             f"&key={GOOGLE_MAPS_API_KEY}"
 
         options = [i['description'] for i in parse_response(request(suggestions_url))['predictions']]
-        address = st.selectbox('suggestions', options)
 
-        address_url = 'https://maps.googleapis.com/maps/api/geocode/json?address=' + \
-            '%20'.join(address.split()) + \
-            f"&key={GOOGLE_MAPS_API_KEY}"
+        if len(options) > 0:
+            address = st.selectbox('suggestions', options)
 
-        latlng = parse_response(request(address_url))['results'][0]['geometry']['location']
-        try:
-            lat, lng = latlng['lat'], latlng['lng']
-        except IndexError:
-            st.write('Latitude & longitude could not be found!')
-            return
+            address_url = 'https://maps.googleapis.com/maps/api/geocode/json?address=' + \
+                '%20'.join(address.split()) + \
+                f"&key={GOOGLE_MAPS_API_KEY}"
 
-        m2 = folium.Map([lat, lng], zoom_start=ZOOM_LEVEL)
-        folium.Marker([lat, lng]).add_to(m2)
-        map2 = st_folium(m2, height=350, width=700)
-        display_info(lat, lng)
+            latlng = parse_response(request(address_url))['results'][0]['geometry']['location']
+            try:
+                lat, lng = latlng['lat'], latlng['lng']
+            except IndexError:
+                st.write('Latitude & longitude could not be found!')
+                return
+
+            m2 = folium.Map([lat, lng], zoom_start=ZOOM_LEVEL)
+            folium.Marker([lat, lng]).add_to(m2)
+            map2 = st_folium(m2, height=350, width=700)
+            display_info(lat, lng)
+        
+        else:
+            st.write('Invalid address, please try again!')
 
 
 def handle_latlng():
