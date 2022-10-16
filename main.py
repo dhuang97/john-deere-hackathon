@@ -9,6 +9,8 @@ from folium.plugins import MousePosition
 import pandas as pd
 import sklearn as sk
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import train_test_split
+from patsy import dmatrices
 
 st.title("Web app!")
 
@@ -27,7 +29,20 @@ AMBEE_URL = "https://api.ambeedata.com/weather/latest/by-lat-lng"
 SOIL_URL = "https://rest.isric.org/soilgrids/v2.0/properties/query"
 
 
-def display_lat_lng(lat, lng):
+def display_info(lat, lng):
+
+  ph, temperature, humidity = api_calls()
+
+  try:
+    crop_recommendations = crop_recommender_model(ph, temperature, humidity)
+    st.write(crop_recommendations)
+  except Exception as e:
+    print(e)
+    error = "Encountered error when training model or creating recommendation"
+    st.write(error)
+
+
+def api_calls():
   ambee_querystring = {"lat": lat, "lng": lng}
   soil_querystring = {
     "lat": lat,
@@ -70,12 +85,25 @@ def display_lat_lng(lat, lng):
     ambee_error = "No temperature and/or humidity data for this region"
     st.write('Error', ambee_error)
 
+  return ph, temperature, humidity
+  
 
-def crop_recommender(ph, temp, humidity):
+def crop_recommender_model(ph, temp, humidity):
     df = pd.read_csv("Crop_recommendation.csv")
-
+    X, y = matricies(df, ['ph', 'temperature', 'humidity'])
     model = KNeighborsClassifier(p=2)
+    model.fit(X, y)
+    return model.predict_proba([ph, temp, humidity])
+    
 
+def formula(args: list) -> str:
+  return "C(label) ~ " + " + ".join(args)
+
+
+def matricies(df, args: list):
+  Y, X = dmatrices(formula(["0", *args]), df, return_type='dataframe')
+  y = Y['label'].values
+  return X, y
 
 
 map_option, address_option, latlng_option = st.tabs(
@@ -97,7 +125,7 @@ with map_option:
 
   if map['last_clicked']:
     lat, lng = map['last_clicked']['lat'], map['last_clicked']['lng']
-    display_lat_lng(lat, lng)
+    display_info(lat, lng)
 
 with address_option:
   address = st.text_input('input address')
@@ -118,7 +146,7 @@ with address_option:
       m2 = folium.Map([lat, lng], zoom_start=15)
       map2 = st_folium(m2, height=350, width=700)
 
-      display_lat_lng(lat, lng)
+      display_info(lat, lng)
 
     except IndexError:
       print('lat lng not found')
@@ -136,4 +164,4 @@ with latlng_option:
     m3 = folium.Map([lat, lng], zoom_start=15)
     map3 = st_folium(m3, height=350, width=700)
 
-    display_lat_lng(lat, lng)
+    display_info(lat, lng)
