@@ -2,18 +2,15 @@
 
 from dotenv import load_dotenv
 import os
-
+import time
+import numpy as np
+from datetime import date, timedelta
 import streamlit as st
 from streamlit_folium import st_folium
 import requests
 import json
 import folium
 from folium.plugins import MousePosition
-import pandas as pd
-import sklearn as sk
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.model_selection import train_test_split
-from patsy import dmatrices
 
 
 load_dotenv('credentials.env')
@@ -21,13 +18,23 @@ GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY')
 AMBEE_API_KEY = os.getenv('AMBEE_API_KEY')
 
 
-AMBEE_URL = "https://api.ambeedata.com/weather/latest/by-lat-lng"
 SOIL_URL = "https://rest.isric.org/soilgrids/v2.0/properties/query"
 ZOOM_LEVEL = 15
 
 
-st.title("Title placeholder")
+@st.cache
+def read_data():
+    data = np.genfromtxt('Crop_recommendation.csv', delimiter=',', dtype=None, encoding=None)[1:, [3,4,5,7]]
 
+    crops = data[:, -1]
+    data = data[:, :-1].astype('float32')
+
+    return data, crops
+
+data, crops = read_data()
+
+
+st.title("Title placeholder")
 
 
 def format_float(f):
@@ -56,11 +63,13 @@ def valid_lat_lng(lat, lng):
 
 
 def display_info(lat, lng):
-    with st.spinner('Loading data...'):
+    with st.spinner('Loading environment data...'):
         res = api_calls(lat, lng)
 
     if res[0]: #success
         ph, temp, humidity = res[1]
+
+        st.header('Average soil info:')
         st.write('pH:', format_float(ph))
         st.write('Temperature:', format_float(temp))
         st.write('Humidity:', format_float(humidity))
@@ -68,15 +77,24 @@ def display_info(lat, lng):
         st.write(res[1])
         return
 
-    '''try:
-        crop_recommendations = crop_recommender_model(ph, temperature, humidity)
-        st.write(crop_recommendations)
-    except Exception as e:
-        print(e)
-        error = "Encountered error when training model or creating recommendation"
-        st.write(error)'''
+    with st.spinner('Computing suggested crops...'):
+        time.sleep(1)
+        vals = [temp, humidity, ph]
+        mse = (np.square(vals - data)).mean(axis=1)
 
+        suggestions = []
 
+        idx = mse.argsort()
+        i = 0
+        while len(suggestions) < 3:
+            crop = crops[idx[i]]
+            if not crop in suggestions:
+                suggestions.append(crop)
+            i += 1
+
+        st.header('Suggested crops:')
+        for s in suggestions:
+            st.write(s)
 
 
 def api_calls(lat, lng):
@@ -95,43 +113,27 @@ def api_calls(lat, lng):
     except:
         return (False, "No pH data for this region!")
         
-    ambee_headers = {
-        'x-api-key': AMBEE_API_KEY,
-        'Content-type': "application/json"
-    }
-    ambee_params = {"lat": lat, "lng": lng}
-    ambee_parsed = parse_response(request(AMBEE_URL, ambee_headers, ambee_params))
+
+    today = date.today()
+    yesterday = today - timedelta(days = 1)
+
+    url = f'https://api.ambeedata.com/weather/history/daily/by-lat-lng?lat={lat}&lng={lng}&' + \
+        f'from={yesterday}%2000:00:00&to={today}%2000:00:00' + \
+        '&x-api-key=574ff7cf7f9cff3669b45812fc5d6f2372f1b73c4a40b89fb0d0ae9ea34175ab&units=si'
+    ambee_parsed = parse_response(request(url))
 
     try:
-        temp = (ambee_parsed['data']['temperature'] - 32) * 5 / 9
+        temp = ambee_parsed["data"]["history"][0]["temperature"]
     except:
         return (False, "No temperature data for this region!")
 
     try:
-        humidity = ambee_parsed['data']['humidity'] * 100
+        humidity = ambee_parsed["data"]["history"][0]["humidity"] * 100
     except:
         return (False, "No humidity data for this region!")
 
     return (True, [ph, temp, humidity])
         
-
-def crop_recommender_model(ph, temp, humidity):
-    df = pd.read_csv("Crop_recommendation.csv")
-    X, y = matricies(df, ['ph', 'temperature', 'humidity'])
-    model = KNeighborsClassifier(p=2)
-    model.fit(X, y)
-    return model.predict_proba([ph, temp, humidity])
-      
-
-def formula(args: list) -> str:
-    return "C(label) ~ " + " + ".join(args)
-
-
-def matricies(df, args: list):
-    Y, X = dmatrices(formula(["0", *args]), df, return_type='dataframe')
-    y = Y['label'].values
-    return X, y
-
 
 def handle_map():
     m = folium.Map()
