@@ -9,5 +9,7 @@ endif
 install: requirements.txt
 	$(PIPTYPE) install -r requirements.txt
 
+PORT?=8501
+
 run: main.py
-	$(PYTHONTYPE) -m streamlit run main.py
+	$(PYTHONTYPE) -m streamlit run main.py --server.port $(PORT)
