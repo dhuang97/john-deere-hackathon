@@ -31,7 +31,7 @@ SOIL_URL = "https://rest.isric.org/soilgrids/v2.0/properties/query"
 
 def display_info(lat, lng):
 
-  ph, temperature, humidity = api_calls()
+  ph, temperature, humidity = api_calls(lat, lng)
 
   try:
     crop_recommendations = crop_recommender_model(ph, temperature, humidity)
@@ -42,7 +42,7 @@ def display_info(lat, lng):
     st.write(error)
 
 
-def api_calls():
+def api_calls(lat, lng):
   ambee_querystring = {"lat": lat, "lng": lng}
   soil_querystring = {
     "lat": lat,
