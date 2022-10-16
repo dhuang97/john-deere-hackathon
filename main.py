@@ -13,6 +13,8 @@ import folium
 from folium.plugins import MousePosition
 
 
+# TODO: could add suggested farming equipment or link to john deere sites
+
 load_dotenv('credentials.env')
 GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY')
 AMBEE_API_KEY = os.getenv('AMBEE_API_KEY')
@@ -71,8 +73,8 @@ def display_info(lat, lng):
 
         st.header('Average soil info:')
         st.write('pH:', format_float(ph))
-        st.write('Temperature:', format_float(temp))
-        st.write('Humidity:', format_float(humidity))
+        st.write('Temperature (°C):', format_float(temp))
+        st.write('Relative humidity:', format_float(humidity))
     else:
         st.write(res[1])
         return
@@ -93,8 +95,8 @@ def display_info(lat, lng):
             i += 1
 
         st.header('Suggested crops:')
-        for s in suggestions:
-            st.write(s)
+        for i in range(len(suggestions)):
+            st.write(i+1, ':', suggestions[i])
 
 
 def api_calls(lat, lng):
@@ -116,6 +118,8 @@ def api_calls(lat, lng):
 
     today = date.today()
     yesterday = today - timedelta(days = 1)
+
+    # TODO: change to year?
 
     url = f'https://api.ambeedata.com/weather/history/daily/by-lat-lng?lat={lat}&lng={lng}&' + \
         f'from={yesterday}%2000:00:00&to={today}%2000:00:00' + \
@@ -157,6 +161,7 @@ def handle_map():
 def handle_address():
     address = st.text_input('Enter address')
 
+    # TODO: keep getting this error 'NoneType' object has no attribute 'split'
     if address:
         suggestions_url = f"https://maps.googleapis.com/maps/api/place/autocomplete/" + \
             f"json?input={'%20'.join(address.split())}" + \
