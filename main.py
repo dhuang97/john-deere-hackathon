@@ -1,5 +1,8 @@
 # api https://docs.streamlit.io/library/api-reference
 
+from dotenv import load_dotenv
+import os
+
 import streamlit as st
 from streamlit_folium import st_folium
 import requests
@@ -12,22 +15,17 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import train_test_split
 from patsy import dmatrices
 
-st.title("Web app!")
 
+load_dotenv('credentials.env')
+GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY')
+AMBEE_API_KEY = os.getenv('AMBEE_API_KEY')
 
-# get api keys from .env file
-with open("credentials.env", "r") as f:
-    lines = [line.strip() for line in f.readlines()]
-    api_keys = {}
-    for line in lines:
-        split = line.split(' ')
-        api_keys[split[0]] = split[2]
-
-AMBEE_API_KEY = api_keys['AMBEE_API_KEY']
-MAP_API_KEY = api_keys['MAP_API_KEY']
 
 AMBEE_URL = "https://api.ambeedata.com/weather/latest/by-lat-lng"
 SOIL_URL = "https://rest.isric.org/soilgrids/v2.0/properties/query"
+
+
+st.title("Web app!")
 
 
 def display_info(lat, lng):
@@ -133,7 +131,7 @@ with address_option:
     if address:
         url = f"https://maps.googleapis.com/maps/api/place/autocomplete/" + \
             f"json?input={'%20'.join(address.split())}" + \
-            f"&key={MAP_API_KEY}"
+            f"&key={GOOGLE_MAPS_API_KEY}"
 
         resp = requests.request("GET", url)
         text = json.loads(resp.text)
@@ -144,7 +142,7 @@ with address_option:
 
         url = 'https://maps.googleapis.com/maps/api/geocode/json?address=' + \
             '%20'.join(address.split()) + \
-            f"&key={MAP_API_KEY}"
+            f"&key={GOOGLE_MAPS_API_KEY}"
 
         resp = requests.request("GET", url)
         text = json.loads(resp.text)
