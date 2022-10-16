@@ -1,5 +1,13 @@
+ifeq ($(OS),Windows_NT)
+	PYTHONTYPE := python
+	PIPTYPE := pip
+else
+	PYTHONTYPE := python3
+	PIPTYPE := pip3
+endif
+
 install: requirements.txt
-	pip3 install -r requirements.txt
+	$(PIPTYPE) install -r requirements.txt
 
 run: main.py
-	python3 -m streamlit run main.py
+	$(PYTHONTYPE) -m streamlit run main.py
