@@ -6,6 +6,9 @@ import requests
 import json
 import folium
 from folium.plugins import MousePosition
+import pandas as pd
+import sklearn as sk
+from sklearn.neighbors import KNeighborsClassifier
 
 st.title("Web app!")
 
@@ -28,30 +31,51 @@ def display_lat_lng(lat, lng):
   ambee_querystring = {"lat": lat, "lng": lng}
   soil_querystring = {
     "lat": lat,
-    "lng": lng,
-    'property': ['nitrogen', 'phh2o'],
-    'depth': ['0-5cm']
+    "lon": lng,
+    'property': ['phh2o'],
+    'depth': ['0-5cm'],
+    'value': 'mean'
   }
 
-  response = requests.get(SOIL_URL,
-                          headers={'Content-type': "application/json"},
-                          params=soil_querystring)
-  st.write(response.text)
+  try:
+    response = requests.get(SOIL_URL,
+                            headers={'Content-type': "application/json"},
+                            params=soil_querystring)
+    soil_parsed = json.loads(response.text)
+    ph = soil_parsed['properties']['layers'][0]['depths'][0]['values']['mean'] / 10
+    st.write('PH:', ph)
 
+  except Exception:
+    soil_error = "No ph data for this region"
+    st.write('Error:', soil_error)
+    
   ambee_headers = {
     'x-api-key': AMBEE_API_KEY,
     'Content-type': "application/json"
   }
-  response = requests.request("GET",
-                              AMBEE_URL,
-                              headers=ambee_headers,
-                              params=ambee_querystring)
-  parsed = json.loads(response.text)
 
-  temperature = parsed['data']['temperature']
-  humidity = parsed['data']['humidity']
-  st.write('Temperature:', temperature)
-  st.write('Humidity:', humidity)
+  try:
+    response = requests.request("GET",
+                                AMBEE_URL,
+                                headers=ambee_headers,
+                                params=ambee_querystring)
+    ambee_parsed = json.loads(response.text)
+
+    temperature = (ambee_parsed['data']['temperature'] - 32) * 5 / 9
+    humidity = ambee_parsed['data']['humidity']
+    st.write('Temperature:', temperature)
+    st.write('Humidity:', humidity)
+
+  except Exception:
+    ambee_error = "No temperature and/or humidity data for this region"
+    st.write('Error', ambee_error)
+
+
+def crop_recommender(ph, temp, humidity):
+    df = pd.read_csv("Crop_recommendation.csv")
+
+    model = KNeighborsClassifier(p=2)
+
 
 
 map_option, address_option, latlng_option = st.tabs(
